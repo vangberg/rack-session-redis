@@ -12,24 +12,52 @@ module Rack
 
     class Redis < Abstract::ID
       class MarshalledRedis < ::Redis
-        def get(key)
-          raw = super
-          Marshal.load(raw) if raw
+        def initialize options={}
+          @namespace = options.delete(:namespace)
+
+          super
+        end
+
+        def get key
+          raw = super namespace(key)
+          Marshal.load raw if raw
         end
 
         def set key, value
-          raw = Marshal.dump(value)
-          super(key, raw)
+          raw = Marshal.dump value
+          super namespace(key), raw
+        end
+
+        def del key
+          super namespace(key)
+        end
+
+        def setex key, time, value
+          raw = Marshal.dump value
+          super namespace(key), time, raw
+        end
+
+        private
+        def namespace key
+          @namespace ? "#{@namespace}:#{key}" : key
         end
       end
 
       attr_reader :mutex, :redis
-      DEFAULT_OPTIONS = Abstract::ID::DEFAULT_OPTIONS.merge :drop => false
+      DEFAULT_OPTIONS = Abstract::ID::DEFAULT_OPTIONS.merge(
+        :drop      => false,
+        :url       => "redis://127.0.0.1:6379/0",
+        :namespace => "rack:session"
+      )
 
       def initialize(app, options={})
         super
-        @redis = MarshalledRedis.new
-        @mutex = Mutex.new
+
+        @redis     = MarshalledRedis.new(
+          :namespace => default_options[:namespace],
+          :url       => default_options[:url]
+        )
+        @mutex     = Mutex.new
       end
 
       def generate_sid
@@ -65,9 +93,15 @@ module Rack
         end
         old_session = new_session.instance_variable_get('@old') || {}
         session = merge_sessions session_id, old_session, new_session, session
-        @redis.set session_id, session
+        if options[:expire_after].to_i > 0
+          @redis.setex session_id, options[:expire_after], session
+        else
+          @redis.set session_id, session
+        end
         return session_id
       rescue => e
+        puts e
+        puts e.backtrace
         warn "#{new_session.inspect} has been lost."
         warn $!.inspect
       ensure
