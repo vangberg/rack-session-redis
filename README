@@ -1,0 +1,10 @@
+a redis session store for rack. largely based on Rack::Session::Pool.
+this is an initial release, use with care. patches gladly accepted.
+
+  $ cat config.ru
+  require "rack/session/redis"
+
+  use Rack::Session::Redis(
+    :host      => "redis://localhost:6379/0",
+    :namespace => "rack:session"
+  )
