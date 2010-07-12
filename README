@@ -4,10 +4,10 @@ this is an initial release, use with care. patches gladly accepted.
   $ cat config.ru
   require "rack/session/redis"
 
-  use Rack::Session::Redis(
+  use Rack::Session::Redis, {
     :host         => "redis://localhost:6379/0",
     :namespace    => "rack:session",
     :expire_after => 600
-  )
+  }
 
 using `:expire_after` requires redis >= 2.0.
