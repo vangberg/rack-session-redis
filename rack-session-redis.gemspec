@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name     = "rack-session-redis"
-  s.version  = "0.0.1"
-  s.date     = "2010-06-22"
+  s.version  = "0.0.2"
+  s.date     = "2011-03-05"
   s.summary  = "redis session store for rack"
   s.email    = "harry@vangberg.name"
   s.homepage = "http://github.com/ichverstehe/rack-session-redis"
