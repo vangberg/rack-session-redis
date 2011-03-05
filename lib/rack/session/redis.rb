@@ -53,7 +53,7 @@ module Rack
       def initialize(app, options={})
         super
 
-        @redis     = MarshalledRedis.new(
+        @redis     = MarshalledRedis.connect(
           :namespace => default_options[:namespace],
           :url       => default_options[:url]
         )
