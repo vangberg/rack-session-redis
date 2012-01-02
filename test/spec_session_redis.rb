@@ -69,7 +69,6 @@ describe Rack::Session::Redis do
     app.redis.dbsize.should.equal 1
 
     res1 = req.get("/", "HTTP_COOKIE" => cookie)
-    res1["Set-Cookie"][session_match].should.equal session
     res1.body.should.equal '{"counter"=>2}'
     app.redis.dbsize.should.equal 1
 
@@ -96,7 +95,6 @@ describe Rack::Session::Redis do
     app.redis.dbsize.should.equal 1
 
     res1 = req.get("/", "HTTP_COOKIE" => cookie)
-    res1["Set-Cookie"][session_match].should.equal session
     res1.body.should.equal '{"counter"=>2}'
     app.redis.dbsize.should.equal 1
 
@@ -108,7 +106,6 @@ describe Rack::Session::Redis do
     app.redis.dbsize.should.equal 1
 
     res3 = req.get("/", "HTTP_COOKIE" => new_cookie)
-    res3["Set-Cookie"][session_match].should.equal new_session
     res3.body.should.equal '{"counter"=>4}'
     app.redis.dbsize.should.equal 1
   end
@@ -125,7 +122,6 @@ describe Rack::Session::Redis do
     app.redis.dbsize.should.equal 1
 
     res1 = req.get("/", "HTTP_COOKIE" => cookie)
-    res1["Set-Cookie"][session_match].should.equal session
     res1.body.should.equal '{"counter"=>2}'
     app.redis.dbsize.should.equal 1
 
@@ -135,7 +131,6 @@ describe Rack::Session::Redis do
     app.redis.dbsize.should.equal 1
 
     res3 = req.get("/", "HTTP_COOKIE" => cookie)
-    res3["Set-Cookie"][session_match].should.equal session
     res3.body.should.equal '{"counter"=>4}'
     app.redis.dbsize.should.equal 1
   end

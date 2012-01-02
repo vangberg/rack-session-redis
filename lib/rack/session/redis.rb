@@ -108,6 +108,10 @@ module Rack
         @mutex.unlock if env['rack.multithread']
       end
 
+      def destroy_session(env, session_id, options)
+        set_session(env, session_id, nil, {:drop => true}.merge(options))
+      end
+
       private
 
       def merge_sessions sid, old, new, cur=nil
