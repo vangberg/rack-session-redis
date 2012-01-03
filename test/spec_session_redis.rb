@@ -28,6 +28,16 @@ describe Rack::Session::Redis do
     incrementor.call(env)
   end
 
+  do_nothing = lambda do |env|
+    env['rack.session']['bob'] # fetch any key, just to load the session
+    Rack::Response.new(env["rack.session"].inspect).to_a
+  end
+
+  delete_key = lambda do |env|
+    env['rack.session'].delete('counter')
+    do_nothing.call(env)
+  end
+
   before do
     @redis = Redis.new
     @redis.flushdb
@@ -133,6 +143,26 @@ describe Rack::Session::Redis do
     res3 = req.get("/", "HTTP_COOKIE" => cookie)
     res3.body.should.equal '{"counter"=>4}'
     app.redis.dbsize.should.equal 1
+  end
+
+  it "should delete values from the session correctly" do
+    app = Rack::Session::Redis.new(incrementor)
+    req = Rack::MockRequest.new(app)
+
+    key_deletor = Rack::Utils::Context.new(app, delete_key)
+    kdreq = Rack::MockRequest.new(key_deletor)
+
+    nothing = Rack::Utils::Context.new(app, do_nothing)
+    nothing_req = Rack::MockRequest.new(nothing)
+
+    res0 = req.get("/")
+    cookie = req.get("/")["Set-Cookie"]
+
+    res1 = kdreq.get("/", "HTTP_COOKIE" => cookie)
+    res1.body.should.equal '{}'
+
+    res2 = nothing_req.get("/", "HTTP_COOKIE" => cookie)
+    res2.body.should.equal '{}'
   end
 
   # anyone know how to do this better?

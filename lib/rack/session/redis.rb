@@ -68,69 +68,54 @@ module Rack
       end
 
       def get_session(env, sid)
-        session = @redis.get(sid) if sid
-        @mutex.lock if env['rack.multithread']
-        unless sid and session
-          env['rack.errors'].puts("Session '#{sid.inspect}' not found, initializing...") if $VERBOSE and not sid.nil?
-          session = {}
-          sid = generate_sid
-          @redis.set sid, session
+        with_lock(env, [nil, {}]) do
+          unless sid and session = @redis.get(sid)
+            sid, session = generate_sid, {}
+            unless @redis.set(sid, session)
+              raise "Session collision on '#{sid.inspect}'"
+            end
+          end
+          [sid, session]
         end
-        session.instance_variable_set('@old', {}.merge(session))
-        return [sid, session]
-      ensure
-        @mutex.unlock if env['rack.multithread']
       end
 
       def set_session(env, session_id, new_session, options)
-        @mutex.lock if env['rack.multithread']
-        session = @redis.get(session_id)
-        if options[:renew] or options[:drop]
-          @redis.del session_id
-          return false if options[:drop]
-          session_id = generate_sid
-          @redis.set session_id, 0
+        with_lock(env, false) do
+  
+          if options[:renew] or options[:drop]
+            @redis.del session_id
+            return false if options[:drop]
+
+            session_id = generate_sid
+          end
+
+          if options[:expire_after].to_i > 0
+            @redis.setex session_id, options[:expire_after], new_session
+          else
+            @redis.set session_id, new_session
+          end
+          session_id
         end
-        old_session = new_session.instance_variable_get('@old') || {}
-        session = merge_sessions session_id, old_session, new_session, session
-        if options[:expire_after].to_i > 0
-          @redis.setex session_id, options[:expire_after], session
-        else
-          @redis.set session_id, session
-        end
-        return session_id
-      rescue => e
-        puts e
-        puts e.backtrace
-        warn "#{new_session.inspect} has been lost."
-        warn $!.inspect
-      ensure
-        @mutex.unlock if env['rack.multithread']
       end
 
       def destroy_session(env, session_id, options)
-        set_session(env, session_id, nil, {:drop => true}.merge(options))
+        options = { :renew => true }.update(options) unless options[:drop]
+        set_session(env, session_id, 0, options)
       end
 
-      private
-
-      def merge_sessions sid, old, new, cur=nil
-        cur ||= {}
-        unless Hash === old and Hash === new
-          warn 'Bad old or new sessions provided.'
-          return cur
+      def with_lock(env, default=nil)
+        @mutex.lock if env['rack.multithread']
+        yield
+      rescue Errno::ECONNREFUSED
+        if $VERBOSE
+          warn "#{self} is unable to find redis server."
+          warn $!.inspect
         end
-
-        delete = old.keys - new.keys
-        warn "//@#{sid}: dropping #{delete*','}" if $DEBUG and not delete.empty?
-        delete.each{|k| cur.delete k }
-
-        update = new.keys.select{|k| new[k] != old[k] }
-        warn "//@#{sid}: updating #{update*','}" if $DEBUG and not update.empty?
-        update.each{|k| cur[k] = new[k] }
-
-        cur
+        default
+      ensure
+        @mutex.unlock if @mutex.locked?
       end
+
     end
   end
 end
