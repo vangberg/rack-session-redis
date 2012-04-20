@@ -226,4 +226,18 @@ describe Rack::Session::Redis do
     res["Set-Cookie"].should.not.equal cookie
     res.body.should.include '"counter"=>1'
   end
+
+  it 'expires sessions that are never saved' do
+    app = Rack::Session::Redis.new(incrementor)
+    s_id = app.get_session({}, nil)[0]
+    key = "rack:session:#{s_id}"
+
+    # Hasn't been saved, so it will only be held for 30 seconds.
+    @redis.ttl(key).should == 30
+
+    app.set_session({}, s_id, {:test => "test"}, {:expire_after => 100})
+
+    # Now something has been saved, the normal expiry should take over.
+    @redis.ttl(key).should == 100
+  end
 end

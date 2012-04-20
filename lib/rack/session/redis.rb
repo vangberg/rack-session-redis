@@ -37,6 +37,10 @@ module Rack
           super namespace(key), time, raw
         end
 
+        def persist key
+          super namespace(key)
+        end
+
         private
         def namespace key
           @namespace ? "#{@namespace}:#{key}" : key
@@ -71,7 +75,9 @@ module Rack
         with_lock(env, [nil, {}]) do
           unless sid and session = @redis.get(sid)
             sid, session = generate_sid, {}
-            unless @redis.set(sid, session)
+            
+            # Reserve the value for 30 seconds.
+            unless @redis.setex(sid, 30, session)
               raise "Session collision on '#{sid.inspect}'"
             end
           end
@@ -93,6 +99,7 @@ module Rack
             @redis.setex session_id, options[:expire_after], new_session
           else
             @redis.set session_id, new_session
+            @redis.persist session_id
           end
           session_id
         end
